@@ -1,68 +1,40 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { api, type Note } from "./api";
-import { hasData } from "./config";
-import { getMe } from "./platform";
+import { useEffect, useRef, useState } from "react";
+import HanziWriter from "hanzi-writer";
+import { alphabet, type Point } from "./alphabet";
 
-// 首页：显示当前用户，有数据时演示读写。换成你自己的页面即可。
-export default function App() {
-  const [name, setName] = useState("");
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [text, setText] = useState("");
-  const [error, setError] = useState("");
+type Mode = "hanzi" | "symbol";
+type HanziData = { strokes: string[] };
+const DATA_URL = "https://cdn.jsdelivr.net/npm/hanzi-writer-data@2.0.1";
+const examples = ["永", "人", "大", "小", "山", "水", "火", "木", "日", "月"];
 
-  useEffect(() => {
-    getMe().then((me) => setName(me.name));
-    if (hasData) {
-      api
-        .notes()
-        .then(setNotes)
-        .catch((err) => setError(err.message));
-    }
-  }, []);
-
-  async function add(e: FormEvent) {
-    e.preventDefault();
-    setError("");
-    try {
-      const note = await api.addNote(text);
-      setNotes([note, ...notes]);
-      setText("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "保存失败");
-    }
-  }
-
-  return (
-    <>
-      <header className="topbar">
-        <span className="title">笔顺</span>
-      </header>
-      <main className="content stack">
-        <section className="card stack">
-          <h1>{name ? `你好，${name}` : "你好"}</h1>
-          <p className="muted">练习和认识笔顺</p>
-          {error && <p className="error">{error}</p>}
-        </section>
-        {hasData && (
-          <section className="card stack">
-            <h1>笔记</h1>
-            <form className="actions" onSubmit={add}>
-              <input value={text} onChange={(e) => setText(e.target.value)} placeholder="写点什么" />
-              <button type="submit" disabled={!text.trim()}>
-                保存
-              </button>
-            </form>
-            <ul className="list">
-              {notes.map((n) => (
-                <li key={n.id}>
-                  {n.text}
-                  <span className="muted"> · {n.author}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-      </main>
-    </>
-  );
+function Grid({ fourLines = false }: { fourLines?: boolean }) {
+  return <svg className="practice-grid" viewBox="0 0 100 100" aria-hidden="true"><rect x="1" y="1" width="98" height="98" rx="5"/><path d="M50 1V99M1 50H99M1 1L99 99M99 1L1 99"/>{fourLines&&<path className="four-lines" d="M1 25H99M1 75H99"/>}</svg>;
 }
+
+function StrokeStrip({ strokes }: { strokes: string[] }) {
+  return <section className="breakdown"><div className="section-heading"><h2>笔顺分解</h2><span>每一格新增一笔</span></div><div className="stroke-strip">{strokes.map((_,i)=><div className="stroke-card" key={i}><svg viewBox="0 0 1024 1024"><g transform="scale(1,-1) translate(0,-900)">{strokes.slice(0,i+1).map((d,j)=><path key={j} d={d} className={j===i?"current-stroke":"past-stroke"}/>)}</g></svg><b>{i+1}</b></div>)}</div></section>;
+}
+
+function HanziPractice({ value, report }: { value: string; report: (s:string,done?:boolean)=>void }) {
+  const host=useRef<HTMLDivElement>(null); const writer=useRef<HanziWriter|null>(null); const [data,setData]=useState<HanziData|null>(null); const [loading,setLoading]=useState(true);
+  useEffect(()=>{let alive=true;setLoading(true);setData(null);host.current?.replaceChildren();writer.current=HanziWriter.create(host.current!,value,{width:320,height:320,padding:18,showOutline:true,showCharacter:false,strokeAnimationSpeed:1.2,delayBetweenStrokes:260,drawingColor:"#2563eb",drawingWidth:10,highlightColor:"#f59e0b",charDataLoader:char=>fetch(`${DATA_URL}/${encodeURIComponent(char)}.json`).then(r=>{if(!r.ok)throw Error();return r.json()}).then(j=>{if(alive)setData(j);return j}),onLoadCharDataError:()=>{if(alive){setLoading(false);report("暂不支持这个字，请换一个常用汉字")}},onLoadCharDataSuccess:()=>{if(alive){setLoading(false);report("准备好了，点“开始练习”吧")}}});return()=>{alive=false;writer.current=null;host.current?.replaceChildren()}},[value]);
+  const animate=()=>{report("正在逐笔演示…");writer.current?.animateCharacter({onComplete:()=>report("演示完成，现在轮到你啦！")})};
+  const quiz=()=>{report("请从第一笔开始书写");writer.current?.quiz({showHintAfterMisses:2,highlightOnComplete:true,onMistake:s=>report(`这一笔方向或位置不对，再试试（已提醒 ${s.totalMistakes} 次）`),onCorrectStroke:s=>report(`第 ${s.strokeNum+1} 笔正确！`),onComplete:s=>report(`太棒了！${s.totalMistakes?`共调整了 ${s.totalMistakes} 次`:"一次就写对了"}`,true)})};
+  return <><div className="board-wrap"><Grid/><div ref={host} className="writer-host"/>{loading&&<span className="loading">正在准备字帖…</span>}</div><div className="controls"><button onClick={animate} disabled={loading}>▶ 动画演示</button><button className="primary" onClick={quiz} disabled={loading}>✍ 开始练习</button></div>{data&&<StrokeStrip strokes={data.strokes}/>}</>;
+}
+
+function SymbolPractice({ value, report }: { value:string; report:(s:string,done?:boolean)=>void }) {
+  const strokes=alphabet[value]; const [shown,setShown]=useState(strokes.length); const [expected,setExpected]=useState(0); const [drawing,setDrawing]=useState<Point[]>([]); const [quiz,setQuiz]=useState(false); const timer=useRef<number>(0);
+  useEffect(()=>{setShown(strokes.length);setExpected(0);setDrawing([]);setQuiz(false);return()=>clearInterval(timer.current)},[value]);
+  const path=(s:Point[])=>s.map((p,i)=>`${i?"L":"M"}${p[0]} ${p[1]}`).join(" ");
+  const animate=()=>{clearInterval(timer.current);setQuiz(false);setShown(0);report("正在逐笔演示…");let n=0;timer.current=window.setInterval(()=>{n++;setShown(n);if(n>=strokes.length){clearInterval(timer.current);report("演示完成，现在轮到你啦！")}},650)};
+  const begin=()=>{clearInterval(timer.current);setShown(0);setExpected(0);setDrawing([]);setQuiz(true);report("请按蓝色起点提示书写第 1 笔")};
+  const point=(e:React.PointerEvent<SVGSVGElement>):Point=>{const r=e.currentTarget.getBoundingClientRect();return[(e.clientX-r.left)/r.width*100,(e.clientY-r.top)/r.height*110]};
+  const down=(e:React.PointerEvent<SVGSVGElement>)=>{if(!quiz)return;e.currentTarget.setPointerCapture(e.pointerId);setDrawing([point(e)])};
+  const move=(e:React.PointerEvent<SVGSVGElement>)=>{if(drawing.length&&e.currentTarget.hasPointerCapture(e.pointerId))setDrawing(p=>[...p,point(e)])};
+  const up=()=>{if(!drawing.length)return;const target=strokes[expected],a=drawing[0],b=drawing.at(-1)!,start=target[0],end=target.at(-1)!,dist=(p:Point,q:Point)=>Math.hypot(p[0]-q[0],p[1]-q[1]);if(dist(a,start)<24&&dist(b,end)<30&&drawing.length>2){const next=expected+1;setShown(next);setExpected(next);if(next===strokes.length){setQuiz(false);report("太棒了！书写顺序全部正确",true)}else report(`第 ${next} 笔正确！请写第 ${next+1} 笔`)}else report(`第 ${expected+1} 笔的起点或方向不对，再试试`);setDrawing([])};
+  return <><div className="board-wrap letter-board"><Grid fourLines/><svg className="letter-layer" viewBox="0 0 100 110" onPointerDown={down} onPointerMove={move} onPointerUp={up}>{strokes.map((s,i)=><path key={i} d={path(s)} className={i<shown?"letter-done":"letter-guide"}/>)}{quiz&&expected<strokes.length&&<circle className="start-dot" cx={strokes[expected][0][0]} cy={strokes[expected][0][1]} r="3"/>}{drawing.length>1&&<path d={path(drawing)} className="letter-drawing"/>}</svg></div><div className="controls"><button onClick={animate}>▶ 动画演示</button><button className="primary" onClick={begin}>✍ 开始练习</button></div><section className="breakdown"><div className="section-heading"><h2>笔画分解</h2><span>每格显示单独一笔</span></div><div className="stroke-strip">{strokes.map((s,i)=><div className="stroke-card" key={i}><svg viewBox="0 0 100 110"><path d={path(s)} className="current-stroke letter-mini"/></svg><b>{i+1}</b></div>)}</div></section></>;
+}
+
+export default function App(){const[mode,setMode]=useState<Mode>("hanzi"),[value,setValue]=useState("永"),[draft,setDraft]=useState("永"),[message,setMessage]=useState("准备好了，先看动画，再动手写一写"),[stars,setStars]=useState(()=>Number(localStorage.getItem("bishun-stars")||0));const report=(s:string,done=false)=>{setMessage(s);if(done)setStars(n=>{const x=n+1;localStorage.setItem("bishun-stars",String(x));return x})};const select=(v:string)=>{setValue(v);setDraft(v)};const switchMode=(m:Mode)=>{setMode(m);select(m==="hanzi"?"永":"A");setMessage(m==="hanzi"?"选择一个汉字开始练习":"选择一个字母或数字开始练习")};const submit=(e:React.FormEvent)=>{e.preventDefault();const v=[...draft.trim()][0];if(!v)return;if(mode==="hanzi"&&!/\p{Script=Han}/u.test(v)){setMessage("请输入一个汉字");return}if(mode==="symbol"&&!/[A-Za-z0-9]/.test(v)){setMessage("请输入一个英文字母或数字");return}select(v)};
+return <div className="app-shell"><header className="topbar"><div className="brand"><img src="./icon.svg" alt=""/><span><strong>笔顺小课堂</strong><small>一笔一画，写好每个字</small></span></div><div className="stars" aria-label={`获得 ${stars} 颗星`}>★ {stars}</div></header><main><section className="hero"><div><span className="eyebrow">今天练什么？</span><h1>看清每一笔，写得更漂亮</h1><p>动画示范、分步字帖和即时提醒，陪孩子轻松练习。</p></div><div className="mascot" aria-hidden="true">✏️</div></section><nav className="mode-tabs"><button className={mode==="hanzi"?"active":""} onClick={()=>switchMode("hanzi")}>汉字笔顺</button><button className={mode==="symbol"?"active":""} onClick={()=>switchMode("symbol")}>字母与数字</button></nav><div className="workspace"><aside className="picker card"><h2>{mode==="hanzi"?"选择汉字":"选择字母或数字"}</h2><form onSubmit={submit}><input value={draft} maxLength={2} onChange={e=>setDraft(e.target.value)} aria-label="练习内容"/><button className="primary" type="submit">练习</button></form>{mode==="hanzi"?<div className="quick-grid">{examples.map(c=><button key={c} className={c===value?"selected":""} onClick={()=>select(c)}>{c}</button>)}</div>:<>{[["大写字母","ABCDEFGHIJKLMNOPQRSTUVWXYZ"],["小写字母","abcdefghijklmnopqrstuvwxyz"],["数字","0123456789"]].map(([label,chars])=><div key={label}><label>{label}</label><div className="letter-picker">{[...chars].map(c=><button key={c} className={c===value?"selected":""} onClick={()=>select(c)}>{c}</button>)}</div></div>)}</>}</aside><section className="practice card"><div className="practice-title"><div><span>正在练习</span><h2>{value}</h2></div><p role="status">{message}</p></div>{mode==="hanzi"?<HanziPractice value={value} report={report}/>:<SymbolPractice value={value} report={report}/>}</section></div><footer>笔顺引擎：Hanzi Writer（MIT） · 汉字数据：Make Me a Hanzi / Arphic Public License</footer></main></div>}

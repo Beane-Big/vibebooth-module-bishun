@@ -2,6 +2,18 @@
 
 练习和认识笔顺
 
+## 功能
+
+- 汉字田字格、逐笔动画、独立笔画分解和手写笔顺判定
+- A–Z、a–z 与 0–9 的四线辅助格、逐笔演示和书写顺序判定
+- 响应式 PC、iPad、手机布局，练习完成后获得本地星星奖励
+- 自定义主题 SVG 应用图标
+
+## 开源与字形数据
+
+- 笔顺引擎使用 [Hanzi Writer](https://github.com/chanind/hanzi-writer)，MIT License。
+- 汉字笔画数据来自 [hanzi-writer-data](https://github.com/chanind/hanzi-writer-data)（上游为 Make Me a Hanzi），遵循 Arphic Public License。当前版本在使用汉字功能时从固定版本 `hanzi-writer-data@2.0.1` 的 jsDelivr 地址读取数据；字母与数字数据随模块打包，不依赖网络。
+
 这是一个 [Vibebooth](https://github.com/Beane-Big/vibebooth) 模块，由 `create-vibebooth` 生成。
 
 ## 常用命令
