@@ -1,0 +1,14 @@
+{
+  "name": "vibebooth-module-bishun",
+  "private": true,
+  "version": "0.0.0",
+  "description": "练习和认识笔顺",
+  "scripts": {
+    "pack": "node scripts/vb.mjs pack",
+    "pack:source": "node scripts/vb.mjs source",
+    "install:local": "node scripts/vb.mjs install",
+    "dev": "node scripts/vb.mjs dev",
+    "standalone": "node scripts/vb.mjs standalone",
+    "rename": "node scripts/vb.mjs rename"
+  }
+}
