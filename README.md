@@ -4,15 +4,18 @@
 
 ## 功能
 
-- 汉字田字格、逐笔动画、独立笔画分解和手写笔顺判定
-- A–Z、a–z 与 0–9 的四线辅助格、逐笔演示和书写顺序判定
-- 响应式 PC、iPad、手机布局，练习完成后获得本地星星奖励
+- 汉字田字格、逐笔动画、笔顺分解和手写笔顺判定
+- 汉字动画可开启“笔画播报”，演示时逐笔读出“第几笔、笔画名称”（浏览器语音合成），开关状态保存在本机
+- A–Z、a–z 与 0–9 在四线三格中练习：大写字母和数字占上中两格，小写字母按 x 高度、上伸和下伸部分占格，逐笔演示和书写判定与汉字共用同一个引擎
+- 响应式 PC、iPad、手机布局，PC 和 iPad（含 11 英寸横竖屏）一屏显示完整，练习完成后获得本地星星奖励
 - 自定义主题 SVG 应用图标
 
 ## 开源与字形数据
 
 - 笔顺引擎使用 [Hanzi Writer](https://github.com/chanind/hanzi-writer)，MIT License。
-- 汉字笔画数据来自 [hanzi-writer-data](https://github.com/chanind/hanzi-writer-data)（上游为 Make Me a Hanzi），遵循 Arphic Public License。当前版本在使用汉字功能时从固定版本 `hanzi-writer-data@2.0.1` 的 jsDelivr 地址读取数据；字母与数字数据随模块打包，不依赖网络。
+- 汉字笔画数据来自 [hanzi-writer-data](https://github.com/chanind/hanzi-writer-data)（上游为 Make Me a Hanzi），遵循 Arphic Public License。当前版本在使用汉字功能时从固定版本 `hanzi-writer-data@2.0.1` 的 jsDelivr 地址读取数据。
+- 字母与数字的笔顺数据在 `frontend/src/alphabet.ts` 里按 Hanzi Writer 的字形格式生成（中线 + 轮廓），随模块打包，不依赖网络。
+- 笔画名称的笔顺编码来自 [cnchar](https://github.com/theajack/cnchar) 的 `cnchar-order@3.2.6`，MIT License，抽取后放在 `frontend/src/data/stroke-orders.json`，第一次播报时才加载。编码里少数“一码两名”的笔画（如横撇/横钩、斜钩/卧钩）按字形中线的形状区分。
 
 这是一个 [Vibebooth](https://github.com/Beane-Big/vibebooth) 模块，由 `create-vibebooth` 生成。
 
