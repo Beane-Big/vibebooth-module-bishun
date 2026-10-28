@@ -6,6 +6,9 @@ export type GlyphData = { strokes: string[]; medians: Point[][] };
 // 四线三格的四条线：第一线、第二线、第三线（基线）、第四线
 export const LINES = [830, 530, 230, -70];
 const WIDTH = 24; // 笔画半宽
+// 演示动画的笔刷宽度。Hanzi Writer 固定用 200 宽的笔刷再按轮廓裁剪，字母笔画细、弯离得近（s、e），
+// 宽笔刷会提前露出同一笔里还没写到的部分，所以字母要换成只比笔画略宽的笔刷
+export const BRUSH = WIDTH * 2 + 16;
 
 const line = (...p: Point[]) => p;
 // 椭圆弧，角度按数学方向（逆时针为正），每 12° 取一个点
@@ -111,5 +114,10 @@ function outline(m: Point[]) {
   return parts.join("");
 }
 
+// 由各笔中线生成 Hanzi Writer 的字形数据；拼音把几个字母拼起来后也用它
+export const buildGlyph = (medians: Point[][]): GlyphData => ({ medians: medians.map(m => densify(m).map(([x, y]) => [r(x), r(y)] as Point)), strokes: medians.map(outline) });
+
+// 小写字母的中线，拼音按它拼字母
+export const lowerShapes = lower;
 const all: Record<string, Point[][]> = { ...upper, ...lower, ...digits };
-export const alphabet: Record<string, GlyphData> = Object.fromEntries(Object.entries(all).map(([k, medians]) => [k, { medians: medians.map(m => densify(m).map(([x, y]) => [r(x), r(y)] as Point)), strokes: medians.map(outline) }]));
+export const alphabet: Record<string, GlyphData> = Object.fromEntries(Object.entries(all).map(([k, medians]) => [k, buildGlyph(medians)]));

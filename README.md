@@ -7,6 +7,10 @@
 - 汉字田字格、逐笔动画、笔顺分解和手写笔顺判定
 - 汉字动画可开启“笔画播报”，演示时逐笔读出“第几笔、笔画名称”（浏览器语音合成），开关状态保存在本机
 - A–Z、a–z 与 0–9 在四线三格中练习：大写字母和数字占上中两格，小写字母按 x 高度、上伸和下伸部分占格，逐笔演示和书写判定与汉字共用同一个引擎
+- 汉字搜索过的字保存在本机，显示在常用字前面（最多 10 个）
+- 左侧按“汉 / A / 数 / 重难”切换练习内容
+- 汉字可以打开“拼音”开关：字帖上方用四线三格显示拼音（多音字可切换读音），拼音也能逐笔演示和描红，先写字母、最后标声调
+- 重难点：练习时写错的字（汉字、字母、数字）自动收进“重难”，一次练习只记一次，存在后端、按登录用户分开保存，掌握后可以移出
 - 响应式 PC、iPad、手机布局，PC 和 iPad（含 11 英寸横竖屏）一屏显示完整，练习完成后获得本地星星奖励
 - 自定义主题 SVG 应用图标
 
@@ -16,6 +20,7 @@
 - 汉字笔画数据来自 [hanzi-writer-data](https://github.com/chanind/hanzi-writer-data)（上游为 Make Me a Hanzi），遵循 Arphic Public License。当前版本在使用汉字功能时从固定版本 `hanzi-writer-data@2.0.1` 的 jsDelivr 地址读取数据。
 - 字母与数字的笔顺数据在 `frontend/src/alphabet.ts` 里按 Hanzi Writer 的字形格式生成（中线 + 轮廓），随模块打包，不依赖网络。
 - 笔画名称的笔顺编码来自 [cnchar](https://github.com/theajack/cnchar) 的 `cnchar-order@3.2.6`，MIT License，抽取后放在 `frontend/src/data/stroke-orders.json`，第一次播报时才加载。编码里少数“一码两名”的笔画（如横撇/横钩、斜钩/卧钩）按字形中线的形状区分。
+- 拼音读音来自 [pinyin-pro](https://github.com/zh-lx/pinyin-pro)，MIT License，打开拼音开关时才加载；拼音字形由小写字母笔顺加声调符号拼成（`frontend/src/pinyin.ts`）。
 
 这是一个 [Vibebooth](https://github.com/Beane-Big/vibebooth) 模块，由 `create-vibebooth` 生成。
 

@@ -1,4 +1,5 @@
-export type Note = { id: number; text: string; author: string; createdAt: string };
+// 重难点字：练习时写错过的字，按用户保存在后端。misses 是写错过的练习次数。
+export type HardWord = { char: string; misses: number; updatedAt: string };
 
 export class ApiError extends Error {
   constructor(
@@ -26,6 +27,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  notes: () => request<Note[]>("/api/bishun/notes"),
-  addNote: (text: string) => request<Note>("/api/bishun/notes", { method: "POST", body: JSON.stringify({ text }) }),
+  hardWords: () => request<HardWord[]>("/api/bishun/hard-words"),
+  addMiss: (char: string) => request<HardWord>("/api/bishun/hard-words", { method: "POST", body: JSON.stringify({ char }) }),
+  removeHardWord: (char: string) => request<void>(`/api/bishun/hard-words/${encodeURIComponent(char)}`, { method: "DELETE" }),
 };
