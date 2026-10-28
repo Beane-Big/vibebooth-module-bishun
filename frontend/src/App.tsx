@@ -25,6 +25,7 @@ const save = (key: string, value: string) => { try { localStorage.setItem(key, v
 const isHan = (c: string) => /\p{Script=Han}/u.test(c);
 const loadRecent = (): string[] => { try { const v = JSON.parse(load("bishun-recent", "[]")); return Array.isArray(v) ? v.filter(c => typeof c === "string" && isHan(c)).slice(0, 10) : [] } catch { return [] } };
 const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
+const AGAIN = 2000; // 写完后停留多久自动清空，留时间看完成高亮
 
 // 朗读一段中文；有的浏览器不触发 onend，所以按字数估一个最长等待时间
 function speak(text: string) {
@@ -78,9 +79,9 @@ function useThinBrush(ref: React.RefObject<HTMLDivElement | null>, on: boolean) 
 
 const letterStyle = { strokeColor: "#26374f", outlineColor: "#d5dde9", drawingColor: "#2563eb", drawingWidth: 8, highlightColor: "#f59e0b" };
 
-// 汉字上方的拼音格：四线三格，加载后直接可以写，也可以单独演示；多音字可以切换读音
+// 汉字上方的拼音格：四线三格，加载后直接可以写，写完自动清空再写，也可以单独演示；多音字可以切换读音
 function PinyinBoard({ char, report }: { char: string; report: Report }) {
-  const board = useRef<HTMLDivElement>(null), host = useRef<HTMLDivElement>(null), writer = useRef<HanziWriter | null>(null);
+  const board = useRef<HTMLDivElement>(null), host = useRef<HTMLDivElement>(null), writer = useRef<HanziWriter | null>(null), round = useRef(0);
   const [list, setList] = useState<string[]>([]), [pick, setPick] = useState(0), size = useBoxSize(board);
   const py = list[pick], shape = useMemo(() => py ? pinyinGlyph(py) : null, [py]);
   useThinBrush(host, true);
@@ -94,11 +95,11 @@ function PinyinBoard({ char, report }: { char: string; report: Report }) {
     return () => { writer.current = null; host.current?.replaceChildren() };
   }, [py, size.w > 0]);
   useEffect(() => { const r = host.current?.getBoundingClientRect(); if (r && writer.current) writer.current.updateDimensions({ width: r.width, height: r.height }) }, [size]);
-  const animate = () => { const w = writer.current; w?.cancelQuiz(); report(`拼音 ${py}：正在逐笔演示…`); w?.animateCharacter({ onComplete: () => { if (writer.current !== w) return; report(`拼音 ${py}：演示完成，试着写一写`); setTimeout(() => writer.current === w && quiz(), 600) } }) };
-  const quiz = () => { writer.current?.quiz({ leniency: 0.85, showHintAfterMisses: 2, highlightOnComplete: true, onMistake: () => report(`拼音 ${py}：这一笔不对，再试试`), onCorrectStroke: s => report(`拼音 ${py}：第 ${s.strokeNum + 1} 笔正确！`), onComplete: s => report(`拼音 ${py} 写对了！${s.totalMistakes ? `共调整了 ${s.totalMistakes} 次` : "一次就写对了"}`, true) }) };
+  const animate = () => { const w = writer.current, t = ++round.current; w?.cancelQuiz(); report(`拼音 ${py}：正在逐笔演示…`); w?.animateCharacter({ onComplete: () => { if (writer.current !== w) return; report(`拼音 ${py}：演示完成，试着写一写`); setTimeout(() => round.current === t && writer.current === w && quiz(), 600) } }) };
+  const quiz = () => { const w = writer.current, t = ++round.current; w?.quiz({ leniency: 0.85, showHintAfterMisses: 2, highlightOnComplete: true, onMistake: () => report(`拼音 ${py}：这一笔不对，再试试`), onCorrectStroke: s => report(`拼音 ${py}：第 ${s.strokeNum + 1} 笔正确！`), onComplete: s => { report(`拼音 ${py} 写对了！${s.totalMistakes ? `共调整了 ${s.totalMistakes} 次` : "一次就写对了"}`, true); setTimeout(() => round.current === t && writer.current === w && quiz(), AGAIN) } }) };
   return <div className="pinyin-row">
     <div ref={board} className="pinyin-board">{size.w > 0 && <FourLines w={size.w} h={size.h} padding={0} lines={shape?.lines}/>}<div ref={host} className="writer-host"/>{!list.length && <span className="loading">正在查拼音…</span>}</div>
-    <div className="pinyin-side">{list.length > 1 && <div className="pinyin-picks">{list.map((p, i) => <button key={p} className={i === pick ? "active" : ""} onClick={() => setPick(i)}>{p}</button>)}</div>}<div className="pinyin-actions"><button onClick={animate} disabled={!py} title="演示拼音笔顺">▶ 演示</button><button onClick={() => { report(`拼音 ${py}：先写字母，最后标声调`); quiz() }} disabled={!py} title="清掉已写的笔画，重新写拼音">✍ 练习</button></div></div>
+    <div className="pinyin-side">{list.length > 1 && <div className="pinyin-picks">{list.map((p, i) => <button key={p} className={i === pick ? "active" : ""} onClick={() => setPick(i)}>{p}</button>)}</div>}<div className="pinyin-actions"><button onClick={animate} disabled={!py} title="演示拼音笔顺">▶ 演示</button></div></div>
   </div>;
 }
 
@@ -144,11 +145,11 @@ function Practice({ mode, value, voice, setVoice, showPinyin, setShowPinyin, rep
     }
     after();
   };
-  // 字帖一加载就进入练习。选一次字只在第一次写错时记进重难点，演示、重新练习后再错不重复记
-  const quiz = () => { writer.current?.cancelQuiz(); writer.current?.quiz({ leniency: letters ? 0.85 : 1, showHintAfterMisses: 2, highlightOnComplete: true, onMistake: s => { report(`这一笔方向或位置不对，再试试（已提醒 ${s.totalMistakes} 次）`); if (!missed.current) { missed.current = true; onMiss(value) } }, onCorrectStroke: s => report(`第 ${s.strokeNum + 1} 笔正确！`), onComplete: s => report(`太棒了！${s.totalMistakes ? `共调整了 ${s.totalMistakes} 次` : "一次就写对了"}`, true) }) };
+  // 字帖一加载就进入练习，写完停一会儿自动清空再写一遍。选一次字只在第一次写错时记进重难点，演示、再写时错了不重复记
+  const quiz = () => { const token = run.current; writer.current?.cancelQuiz(); writer.current?.quiz({ leniency: letters ? 0.85 : 1, showHintAfterMisses: 2, highlightOnComplete: true, onMistake: s => { report(`这一笔方向或位置不对，再试试（已提醒 ${s.totalMistakes} 次）`); if (!missed.current) { missed.current = true; onMiss(value) } }, onCorrectStroke: s => report(`第 ${s.strokeNum + 1} 笔正确！`), onComplete: s => { report(`太棒了！${s.totalMistakes ? `共调整了 ${s.totalMistakes} 次` : "一次就写对了"}`, true); setTimeout(() => { if (run.current === token) { quiz(); report("再写一遍，巩固一下") } }, AGAIN) } }) };
   return <>
     <div className="board-area" style={{ "--board": `${size.w}px` } as React.CSSProperties}>{!letters && showPinyin && <PinyinBoard char={value} report={report}/>}<div className="board-main"><div className={letters ? "board-stage letters" : "board-stage"}><div ref={board} className="board-wrap">{letters ? ready && <FourLines w={size.w} h={size.h} padding={padding}/> : <Grid/>}<div ref={host} className="writer-host"/>{loading && <span className="loading">正在准备字帖…</span>}</div>
-    <div className="controls"><button onClick={animate} disabled={loading} title="逐笔演示笔顺">▶ 演示</button><button onClick={() => { stop(); quiz(); report("已清空，从第一笔开始书写") }} disabled={loading} title="清掉已写的笔画，重新写">✍ 练习</button>{!letters && <><Switch label="笔画播报" title={canSpeak ? "演示时读出每一笔的名称" : "当前浏览器不支持语音播报"} checked={voice && canSpeak} disabled={!canSpeak} onChange={v => { setVoice(v); if (!v && canSpeak) speechSynthesis.cancel() }}/><Switch label="拼音" title="在字帖上方显示拼音，拼音也能看笔顺、练习" checked={showPinyin} onChange={setShowPinyin}/></>}</div></div></div></div>
+    <div className="controls"><button onClick={animate} disabled={loading} title="逐笔演示笔顺">▶ 演示</button>{!letters && <><Switch label="笔画播报" title={canSpeak ? "演示时读出每一笔的名称" : "当前浏览器不支持语音播报"} checked={voice && canSpeak} disabled={!canSpeak} onChange={v => { setVoice(v); if (!v && canSpeak) speechSynthesis.cancel() }}/><Switch label="拼音" title="在字帖上方显示拼音，拼音也能看笔顺、练习" checked={showPinyin} onChange={setShowPinyin}/></>}</div></div></div></div>
     {data && <StrokeStrip strokes={data.strokes} fourLines={letters}/>}
   </>;
 }
