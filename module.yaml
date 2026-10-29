@@ -4,7 +4,7 @@ id: bishun               # 全局唯一，也是网址前缀 /apps/bishun/ 和 /
 name: "笔顺"
 description: "练习和认识笔顺"
 icon: icon.svg
-version: 0.4.2           # 发布新版本前改大
+version: 0.4.3           # 发布新版本前改大
 services:                # 哪个容器接哪个网址前缀，安装器据此生成网关路由
   frontend: {port: 80}   # 容器 bishun-frontend → /apps/bishun/
   backend: {port: 8000}  # 容器 bishun-backend → /api/bishun/，健康检查 /api/bishun/health
