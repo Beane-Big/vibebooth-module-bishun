@@ -3,7 +3,7 @@ import HanziWriter from "hanzi-writer";
 import { alphabet, BRUSH, LINES, type GlyphData } from "./alphabet";
 import { strokeNames } from "./strokeNames";
 import { pinyinGlyph, readings } from "./pinyin";
-import { api, type HardWord } from "./api";
+import { loadHardWords, saveHardWords } from "./hardWords";
 
 type Mode = "hanzi" | "symbol";
 type Tab = "hanzi" | "letter" | "digit" | "hard";
@@ -156,12 +156,13 @@ function Practice({ mode, value, voice, setVoice, showPinyin, setShowPinyin, rep
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("hanzi"), [value, setValue] = useState("永"), [draft, setDraft] = useState("永"), [group, setGroup] = useState(0), [message, setMessage] = useState("准备好了，先看动画，再动手写一写"), [stars, setStars] = useState(() => Number(load("bishun-stars", "0"))), [voice, setVoiceState] = useState(() => load("bishun-voice", "1") === "1"), [showPinyin, setPinyinState] = useState(() => load("bishun-pinyin", "0") === "1");
-  const [recent, setRecent] = useState(loadRecent), [hard, setHard] = useState<HardWord[] | null>(null), searched = useRef("");
-  useEffect(() => { api.hardWords().then(setHard).catch(() => setHard(null)) }, []);
+  const [recent, setRecent] = useState(loadRecent), [hard, setHard] = useState(loadHardWords), searched = useRef("");
+  // 重难点和其他练习设置一样留在本机，登录状态不会切换数据。
+  useEffect(() => { saveHardWords(hard) }, [hard]);
   // 搜索过、并且能加载出来的汉字留在本机，显示在常用字前面
   const onLoaded = (c: string) => { if (c !== searched.current) return; searched.current = ""; setRecent(list => { const next = [c, ...list.filter(x => x !== c)].slice(0, 10); save("bishun-recent", JSON.stringify(next)); return next }) };
-  const onMiss = (c: string) => { api.addMiss(c).then(w => setHard(list => [w, ...(list ?? []).filter(x => x.char !== w.char)])).catch(() => { /* 后端不可用时不影响练习 */ }) };
-  const removeHard = (c: string) => { api.removeHardWord(c).then(() => setHard(list => list?.filter(x => x.char !== c) ?? null)).catch(() => setMessage("移出失败，请稍后再试")) };
+  const onMiss = (c: string) => { setHard(list => [{ char: c, misses: (list.find(w => w.char === c)?.misses ?? 0) + 1, updatedAt: new Date().toISOString() }, ...list.filter(w => w.char !== c)]) };
+  const removeHard = (c: string) => { setHard(list => list.filter(w => w.char !== c)) };
   const report = (s: string, done = false) => { setMessage(s); if (done) setStars(n => { const x = n + 1; save("bishun-stars", String(x)); return x }) };
   const setVoice = (v: boolean) => { setVoiceState(v); save("bishun-voice", v ? "1" : "0") };
   const setShowPinyin = (v: boolean) => { setPinyinState(v); save("bishun-pinyin", v ? "1" : "0") };
@@ -171,7 +172,7 @@ export default function App() {
   // 切 tab 时当前的字也属于这个 tab 就接着练，否则换成这个 tab 的第一个
   const switchTab = (t: Tab) => { if (t === tab) return; setTab(t); if (t !== "hard" && !tabs[t].accepts.test(value)) { select(tabs[t].first); setMessage(t === "hanzi" ? "选择一个汉字开始练习" : t === "letter" ? "选择一个字母开始练习" : "选择一个数字开始练习") } };
   const submit = (e: React.FormEvent) => { e.preventDefault(); const v = [...draft.trim()][0]; if (!v) return; if (!tabs[tab].accepts.test(v)) { setMessage(tabs[tab].hint); return } if (isHan(v)) searched.current = v; select(v) };
-  const quick = [...new Set([...recent, ...examples])].slice(0, 15), current = hard?.find(w => w.char === value);
+  const quick = [...new Set([...recent, ...examples])].slice(0, 15), current = hard.find(w => w.char === value);
   const pick = (chars: string[]) => chars.map(c => <button key={c} className={c === value ? "selected" : ""} onClick={() => select(c)}>{c}</button>);
   return <div className="app-shell">
     <header className="topbar"><div className="brand"><img src="./icon.svg" alt=""/><span><strong>笔顺小课堂</strong><small>一笔一画，写好每个字</small></span></div><div className="stars" aria-label={`获得 ${stars} 颗星`}>★ {stars}</div></header>
@@ -184,7 +185,7 @@ export default function App() {
         {tab === "hanzi" && <div className="quick-grid">{pick(quick)}</div>}
         {tab === "letter" && <><nav className="group-tabs">{groups.map(([label], i) => <button key={label} className={i === group ? "active" : ""} onClick={() => setGroup(i)}>{label}</button>)}</nav><div className="letter-picker">{pick([...groups[group][1]])}</div></>}
         {tab === "digit" && <div className="letter-picker">{pick([...digits])}</div>}
-        {tab === "hard" && <section className="hard-words"><div className="section-heading"><h2>重难点</h2><span>{hard === null ? "暂时取不到，稍后再试" : hard.length ? `${hard.length} 个` : "写错的字会自动收进来"}</span></div>{hard && hard.length > 0 && <div className="hard-list">{hard.map(w => <button key={w.char} className={w.char === value ? "selected" : ""} onClick={() => select(w.char)} title={`错过 ${w.misses} 次`}>{w.char}<i>{w.misses}</i></button>)}</div>}</section>}
+        {tab === "hard" && <section className="hard-words"><div className="section-heading"><h2>重难点</h2><span>{hard.length ? `${hard.length} 个` : "写错的字会自动收进来"}</span></div>{hard.length > 0 && <div className="hard-list">{hard.map(w => <button key={w.char} className={w.char === value ? "selected" : ""} onClick={() => select(w.char)} title={`错过 ${w.misses} 次`}>{w.char}<i>{w.misses}</i></button>)}</div>}</section>}
       </aside>
       <section className="practice card"><div className="practice-title"><div><span>正在练习</span><h2>{value}</h2>{current && <span className="hard-tag">重难点 · 错过 {current.misses} 次<button onClick={() => removeHard(value)}>已掌握，移出</button></span>}</div><p role="status">{message}</p></div><Practice key={mode} mode={mode} value={value} voice={voice} setVoice={setVoice} showPinyin={showPinyin} setShowPinyin={setShowPinyin} report={report} onLoaded={onLoaded} onMiss={onMiss}/></section>
     </main>
