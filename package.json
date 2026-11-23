@@ -8,7 +8,7 @@
     "pack:source": "node scripts/vb.mjs source",
     "install:local": "node scripts/vb.mjs install",
     "dev": "node scripts/vb.mjs dev",
-    "standalone": "node scripts/vb.mjs standalone",
+    "standalone": "node scripts/vb.mjs dev",
     "rename": "node scripts/vb.mjs rename"
   }
 }
