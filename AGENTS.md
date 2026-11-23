@@ -2,7 +2,7 @@
 
 这是一个 Vibebooth 模块，遵循模块规范 `platform: 1`：https://github.com/Beane-Big/vibebooth/blob/main/docs/module-spec.md 。不符合规范时 `npm run pack` 会直接报错。下面是本模块自己的约定。
 
-- 模块 id 是 `bishun`：页面在 `/apps/bishun/` 下，接口在 `/api/bishun/` 下，容器叫 `bishun-frontend` 和 `bishun-backend`。
+- 模块 id 是 `bishun`：页面在 `/apps/bishun/` 下，部署容器为 `bishun-frontend`。
 - 不要自己写网关路由标签、端口映射或网络，安装器会补上；`compose.yaml` 允许的字段见规范。
 - 图标只有一份：根目录的 `icon.svg`（`module.yaml` 里的 `icon`）。平台主页、浏览器页签和 iOS 添加到主屏幕都用它，构建前端时由 `frontend/vite-icon.ts` 自动复制一份、再画成 iOS 用的 `apple-touch-icon.png`，并写进 `index.html`。不要在 `frontend/` 里另放图标或手写图标链接；图标里不要用 `<text>`，文字先转成路径。
 - 不写登录代码。后端用 SDK `github.com/Beane-Big/vibebooth/packages/sdk-go/auth` 拿当前用户。
@@ -18,7 +18,7 @@
 
 ## 和平台耦合的等级
 
-当前等级：2（认人）
+当前等级：0（纯前端）。仓库保留旧后端源码，当前安装包仅启动前端，练习数据通过浏览器本地存储保存。
 
 模块和平台耦合多深分成 5 级，规则见模块规范里的“和平台耦合的等级”。只用到当前等级为止的平台契约，不要越级。要升级时在本目录运行下面的命令，它只加文件；已经改过的文件不覆盖，而是打印要手工加的内容。升级后这一行会跟着改。
 
@@ -29,4 +29,4 @@
 | 3 分权 | 令牌里的 `menus` 和 `perms`，`module.yaml` 的 `menus` 和 `permissions` | `npx github:Beane-Big/create-vibebooth add permissions` |
 | 4 用平台数据 | 平台的人员接口 `http://core:8080/api/platform/ext/v1/` | `npx github:Beane-Big/create-vibebooth add persons` |
 
-离开平台也能运行：`npm run standalone`。后端开独立模式（环境变量 `STANDALONE=1`），所有请求都当成一个拥有全部权限的本地用户；不要在 `compose.yaml` 里设这个变量，装到平台里时 SDK 会拒绝请求。第 4 级在独立模式下取不到平台的人员，要自己降级（`backend/persons.go` 里有示例）。
+离开平台也能运行：`npm run standalone`，仅启动前端开发服务。

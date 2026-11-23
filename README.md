@@ -45,7 +45,7 @@
 | --- | --- | --- |
 | `npm run pack` | Docker | 在本机构建镜像，生成 `dist/bishun-<版本>.zip`，上传到平台的“应用管理”页。平台还没装构建器时用 |
 | `npm run install:local` | Docker 和本机平台 | 打包并装到本机平台，打开 http://localhost:8080 就能看到。改完代码再运行一次即可 |
-| `npm run dev` | Docker 和本机平台 | 只启动前端开发服务器，接口转给本机平台，改界面时不用每次打包。先在 http://localhost:8080 登录一次，再打开终端里显示的地址 |
+| `npm run dev` | Node.js | 启动前端开发服务器，打开终端显示的地址即可练习 |
 
 - 运行前先启动 Docker（Windows 和 Mac 上是 Docker Desktop）。
 - “本机平台”指在平台仓库里用 `docker compose up -d` 跑起来的 Vibebooth。`pack` 不需要本机平台。
@@ -56,9 +56,7 @@
 
 | 命令 | 需要 | 做什么 |
 | --- | --- | --- |
-| `npm run standalone` | Node.js；有后端时还要 Go | 后端开独立模式（不校验令牌，所有请求都当成拥有全部权限的本地用户，数据放在 `.data/`），前端开发服务器把接口转给它。打开终端里显示的地址，按 Ctrl+C 一起退出 |
-
-独立模式只用来在本机开发和演示，不要在 `compose.yaml` 里设 `STANDALONE`：装到平台里时 SDK 会拒绝所有请求。
+| `npm run standalone` | Node.js | 启动前端开发服务器，无需平台或后端 |
 
 ### 升级到下一级
 
